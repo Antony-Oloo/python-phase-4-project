@@ -1,11 +1,8 @@
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy.ext.associationproxy import association_proxy
 
-from config import db
 from datetime import datetime
-from app import db
-
-# Models go here!
+from config import db  # Import db directly from config.py
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -29,7 +26,10 @@ class Coupon(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Usage(db.Model):
+    __tablename__ = 'usages'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    coupon_id = db.Column(db.Integer, db.ForeignKey('coupon.id'), nullable=False)
-    used_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    coupon_id = db.Column(db.Integer, db.ForeignKey('coupons.id'), nullable=False)
+    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=False)
+    used_at = db.Column(db.DateTime, default=datetime.utcnow)  # Extra attribute
+    amount_saved = db.Column(db.Float, nullable=True)
