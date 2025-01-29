@@ -1,163 +1,211 @@
 #!/usr/bin/env python3
+from flask import Flask, request, jsonify
+from models import db, app, Store, Product, Coupon, User, Company, StoreSchema, ProductSchema, CouponSchema, UserSchema, CompanySchema
+from flask_cors import CORS
 
-# Remote library imports
-from flask import request, jsonify
-from flask_restful import Resource
-from config import app, db, api
-from models import User, Store, Coupon, Usage
-from datetime import datetime
+# Enable CORS
+CORS(app)
 
-# Index route
-@app.route('/')
-def index():
-    return '<h1>Coupon App Backend</h1>'
+@app.route('/stores', methods=['GET'])
+def get_stores():
+    stores = Store.query.all()
+    store_schema = StoreSchema(many=True)
+    return store_schema.jsonify(stores)
 
-# USER RESOURCE
-class UserResource(Resource):
-    def get(self):
-        users = User.query.all()
-        return jsonify([{"id": user.id, "name": user.name, "email": user.email} for user in users])
+@app.route('/store', methods=['POST'])
+def add_store():
+    name = request.json.get('name')
+    location = request.json.get('location')
 
-    def post(self):
-        data = request.get_json()
-        name, email, password = data.get("name"), data.get("email"), data.get("password")
+    new_store = Store(name=name, location=location)
+    db.session.add(new_store)
+    db.session.commit()
 
-        if not all([name, email, password]):
-            return {"error": "All fields are required!"}, 400
+    store_schema = StoreSchema()
+    return store_schema.jsonify(new_store), 201
 
-        if User.query.filter_by(email=email).first():
-            return {"error": "Email already exists!"}, 400
+@app.route('/store/<int:id>', methods=['PATCH'])
+def update_store(id):
+    store = Store.query.get_or_404(id)
 
-        new_user = User(name=name, email=email, password=password)
-        db.session.add(new_user)
-        db.session.commit()
-        return {"message": "User created successfully!"}, 201
+    store.name = request.json.get('name', store.name)
+    store.location = request.json.get('location', store.location)
 
-    def delete(self):
-        data = request.get_json()
-        user_id = data.get("id")
-        user = User.query.get(user_id)
+    db.session.commit()
 
-        if not user:
-            return {"error": "User not found!"}, 404
+    store_schema = StoreSchema()
+    return store_schema.jsonify(store)
 
-        db.session.delete(user)
-        db.session.commit()
-        return {"message": "User deleted successfully!"}, 200
+@app.route('/store/<int:id>', methods=['DELETE'])
+def delete_store(id):
+    store = Store.query.get_or_404(id)
 
-api.add_resource(UserResource, '/users')
+    db.session.delete(store)
+    db.session.commit()
 
-# STORE RESOURCE
-class StoreResource(Resource):
-    def get(self):
-        stores = Store.query.all()
-        return jsonify([{"id": store.id, "name": store.name, "location": store.location} for store in stores])
+    return '', 204
 
-    def post(self):
-        data = request.get_json()
-        name, location = data.get("name"), data.get("location")
+# Product routes
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = Product.query.all()
+    product_schema = ProductSchema(many=True)
+    return product_schema.jsonify(products)
 
-        if not name:
-            return {"error": "Store name is required!"}, 400
+@app.route('/product', methods=['POST'])
+def add_product():
+    name = request.json.get('name')
+    price = request.json.get('price')
+    store_id = request.json.get('store_id')
 
-        new_store = Store(name=name, location=location)
-        db.session.add(new_store)
-        db.session.commit()
-        return {"message": "Store created successfully!"}, 201
+    new_product = Product(name=name, price=price, store_id=store_id)
+    db.session.add(new_product)
+    db.session.commit()
 
-    def delete(self):
-        data = request.get_json()
-        store_id = data.get("id")
-        store = Store.query.get(store_id)
+    product_schema = ProductSchema()
+    return product_schema.jsonify(new_product), 201
 
-        if not store:
-            return {"error": "Store not found!"}, 404
+@app.route('/product/<int:id>', methods=['PATCH'])
+def update_product(id):
+    product = Product.query.get_or_404(id)
 
-        db.session.delete(store)
-        db.session.commit()
-        return {"message": "Store deleted successfully!"}, 200
+    product.name = request.json.get('name', product.name)
+    product.price = request.json.get('price', product.price)
+    product.store_id = request.json.get('store_id', product.store_id)
 
-api.add_resource(StoreResource, '/stores')
+    db.session.commit()
 
-# COUPON RESOURCE
-class CouponResource(Resource):
-    def get(self):
-        coupons = Coupon.query.all()
-        return jsonify([
-            {
-                "id": coupon.id,
-                "code": coupon.code,
-                "discount_value": coupon.discount_value,
-                "expiry_date": coupon.expiry_date.strftime('%Y-%m-%d'),
-                "store_id": coupon.store_id
-            }
-            for coupon in coupons
-        ])
+    product_schema = ProductSchema()
+    return product_schema.jsonify(product)
 
-    def post(self):
-        data = request.get_json()
-        code, discount_value, expiry_date, store_id = (
-            data.get("code"),
-            data.get("discount_value"),
-            data.get("expiry_date"),
-            data.get("store_id"),
-        )
+@app.route('/product/<int:id>', methods=['DELETE'])
+def delete_product(id):
+    product = Product.query.get_or_404(id)
 
-        if not all([code, discount_value, expiry_date, store_id]):
-            return {"error": "All fields are required!"}, 400
+    db.session.delete(product)
+    db.session.commit()
 
-        new_coupon = Coupon(
-            code=code,
-            discount_value=discount_value,
-            expiry_date=datetime.strptime(expiry_date, "%Y-%m-%d"),
-            store_id=store_id
-        )
-        db.session.add(new_coupon)
-        db.session.commit()
-        return {"message": "Coupon created successfully!"}, 201
+    return '', 204
 
-    def delete(self):
-        data = request.get_json()
-        coupon_id = data.get("id")
-        coupon = Coupon.query.get(coupon_id)
+# Coupon routes
+@app.route('/coupons', methods=['GET'])
+def get_coupons():
+    coupons = Coupon.query.all()
+    coupon_schema = CouponSchema(many=True)
+    return coupon_schema.jsonify(coupons)
 
-        if not coupon:
-            return {"error": "Coupon not found!"}, 404
+@app.route('/coupon', methods=['POST'])
+def add_coupon():
+    code = request.json.get('code')
+    discount = request.json.get('discount')
 
-        db.session.delete(coupon)
-        db.session.commit()
-        return {"message": "Coupon deleted successfully!"}, 200
+    new_coupon = Coupon(code=code, discount=discount)
+    db.session.add(new_coupon)
+    db.session.commit()
 
-api.add_resource(CouponResource, '/coupons')
+    coupon_schema = CouponSchema()
+    return coupon_schema.jsonify(new_coupon), 201
 
-# USAGE RESOURCE
-class UsageResource(Resource):
-    def get(self):
-        usages = Usage.query.all()
-        return jsonify([
-            {
-                "id": usage.id,
-                "user_id": usage.user_id,
-                "coupon_id": usage.coupon_id,
-                "used_at": usage.used_at.strftime('%Y-%m-%d %H:%M:%S'),
-            }
-            for usage in usages
-        ])
+@app.route('/coupon/<int:id>', methods=['PATCH'])
+def update_coupon(id):
+    coupon = Coupon.query.get_or_404(id)
 
-    def post(self):
-        data = request.get_json()
-        user_id, coupon_id = data.get("user_id"), data.get("coupon_id")
+    coupon.code = request.json.get('code', coupon.code)
+    coupon.discount = request.json.get('discount', coupon.discount)
 
-        if not all([user_id, coupon_id]):
-            return {"error": "Both user_id and coupon_id are required!"}, 400
+    db.session.commit()
 
-        new_usage = Usage(user_id=user_id, coupon_id=coupon_id)
-        db.session.add(new_usage)
-        db.session.commit()
-        return {"message": "Coupon usage recorded successfully!"}, 201
+    coupon_schema = CouponSchema()
+    return coupon_schema.jsonify(coupon)
 
-api.add_resource(UsageResource, '/usage')
+@app.route('/coupon/<int:id>', methods=['DELETE'])
+def delete_coupon(id):
+    coupon = Coupon.query.get_or_404(id)
+
+    db.session.delete(coupon)
+    db.session.commit()
+
+    return '', 204
+
+# User routes
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    user_schema = UserSchema(many=True)
+    return user_schema.jsonify(users)
+
+@app.route('/user', methods=['POST'])
+def add_user():
+    name = request.json.get('name')
+    email = request.json.get('email')
+
+    new_user = User(name=name, email=email)
+    db.session.add(new_user)
+    db.session.commit()
+
+    user_schema = UserSchema()
+    return user_schema.jsonify(new_user), 201
+
+@app.route('/user/<int:id>', methods=['PATCH'])
+def update_user(id):
+    user = User.query.get_or_404(id)
+
+    user.name = request.json.get('name', user.name)
+    user.email = request.json.get('email', user.email)
+
+    db.session.commit()
+
+    user_schema = UserSchema()
+    return user_schema.jsonify(user)
+
+@app.route('/user/<int:id>', methods=['DELETE'])
+def delete_user(id):
+    user = User.query.get_or_404(id)
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return '', 204
+
+# Company routes
+@app.route('/companies', methods=['GET'])
+def get_companies():
+    companies = Company.query.all()
+    company_schema = CompanySchema(many=True)
+    return company_schema.jsonify(companies)
+
+@app.route('/company', methods=['POST'])
+def add_company():
+    name = request.json.get('name')
+    location = request.json.get('location')
+
+    new_company = Company(name=name, location=location)
+    db.session.add(new_company)
+    db.session.commit()
+
+    company_schema = CompanySchema()
+    return company_schema.jsonify(new_company), 201
+
+@app.route('/company/<int:id>', methods=['PATCH'])
+def update_company(id):
+    company = Company.query.get_or_404(id)
+
+    company.name = request.json.get('name', company.name)
+    company.location = request.json.get('location', company.location)
+
+    db.session.commit()
+
+    company_schema = CompanySchema()
+    return company_schema.jsonify(company)
+
+@app.route('/company/<int:id>', methods=['DELETE'])
+def delete_company(id):
+    company = Company.query.get_or_404(id)
+
+    db.session.delete(company)
+    db.session.commit()
+
+    return '', 204
 
 if __name__ == '__main__':
-    app.run(port=5555, debug=True)
-
+    app.run(debug=True)

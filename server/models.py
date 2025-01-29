@@ -1,35 +1,87 @@
-from sqlalchemy_serializer import SerializerMixin
-from sqlalchemy.ext.associationproxy import association_proxy
-
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
 from datetime import datetime
-from config import db  # Import db directly from config.py
+from sqlalchemy.orm import relationship
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)  # Hashed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///project.db'  # Or your DB URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+ma = Marshmallow(app)
 
+# Association table for many-to-many relationship between User and Coupon
+user_coupon = db.Table('user_coupon',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('coupon_id', db.Integer, db.ForeignKey('coupon.id'), primary_key=True),
+    db.Column('date_issued', db.DateTime, default=datetime.utcnow)
+)
+
+# Model for Store
 class Store(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    location = db.Column(db.String(200), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    location = db.Column(db.String(200), nullable=False)
+    products = db.relationship('Product', backref='store', lazy=True)
 
+    def __repr__(self):
+        return f'<Store {self.name}>'
+
+# Model for Product
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    store_id = db.Column(db.Integer, db.ForeignKey('store.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Product {self.name}>'
+
+# Model for User
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    coupons = db.relationship('Coupon', secondary=user_coupon, backref=db.backref('users', lazy=True))
+
+    def __repr__(self):
+        return f'<User {self.name}>'
+
+# Model for Coupon
 class Coupon(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True, nullable=False)
-    discount_value = db.Column(db.Float, nullable=False)
-    expiry_date = db.Column(db.Date, nullable=False)
-    store_id = db.Column(db.Integer, db.ForeignKey('store.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    code = db.Column(db.String(100), unique=True, nullable=False)
+    discount = db.Column(db.Float, nullable=False)
 
-class Usage(db.Model):
-    __tablename__ = 'usages'
+    def __repr__(self):
+        return f'<Coupon {self.code}>'
+
+# Model for Company
+class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    coupon_id = db.Column(db.Integer, db.ForeignKey('coupons.id'), nullable=False)
-    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=False)
-    used_at = db.Column(db.DateTime, default=datetime.utcnow)  # Extra attribute
-    amount_saved = db.Column(db.Float, nullable=True)
+    name = db.Column(db.String(100), nullable=False)
+    location = db.Column(db.String(200), nullable=False)
+
+    def __repr__(self):
+        return f'<Company {self.name}>'
+
+# Schemas for serialization
+class StoreSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Store
+
+class ProductSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Product
+
+class CouponSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Coupon
+
+class UserSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = User
+
+class CompanySchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = Company
