@@ -1,211 +1,151 @@
-#!/usr/bin/env python3
-from flask import Flask, request, jsonify
-from models import db, app, Store, Product, Coupon, User, Company, StoreSchema, ProductSchema, CouponSchema, UserSchema, CompanySchema
-from flask_cors import CORS
+from flask import Flask, request, jsonify 
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from models import db, User, Store, Product, Company, Coupon
 
-# Enable CORS
-CORS(app)
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-@app.route('/stores', methods=['GET'])
-def get_stores():
-    stores = Store.query.all()
-    store_schema = StoreSchema(many=True)
-    return store_schema.jsonify(stores)
+db.init_app(app)
+migrate = Migrate(app, db)
 
-@app.route('/store', methods=['POST'])
-def add_store():
-    name = request.json.get('name')
-    location = request.json.get('location')
+# Create the database tables
+with app.app_context():
+    db.create_all()
 
-    new_store = Store(name=name, location=location)
-    db.session.add(new_store)
-    db.session.commit()
+@app.route('/')
+def home():
+    return jsonify({"message": "Welcome to the API!"})
 
-    store_schema = StoreSchema()
-    return store_schema.jsonify(new_store), 201
-
-@app.route('/store/<int:id>', methods=['PATCH'])
-def update_store(id):
-    store = Store.query.get_or_404(id)
-
-    store.name = request.json.get('name', store.name)
-    store.location = request.json.get('location', store.location)
-
-    db.session.commit()
-
-    store_schema = StoreSchema()
-    return store_schema.jsonify(store)
-
-@app.route('/store/<int:id>', methods=['DELETE'])
-def delete_store(id):
-    store = Store.query.get_or_404(id)
-
-    db.session.delete(store)
-    db.session.commit()
-
-    return '', 204
-
-# Product routes
-@app.route('/products', methods=['GET'])
-def get_products():
-    products = Product.query.all()
-    product_schema = ProductSchema(many=True)
-    return product_schema.jsonify(products)
-
-@app.route('/product', methods=['POST'])
-def add_product():
-    name = request.json.get('name')
-    price = request.json.get('price')
-    store_id = request.json.get('store_id')
-
-    new_product = Product(name=name, price=price, store_id=store_id)
-    db.session.add(new_product)
-    db.session.commit()
-
-    product_schema = ProductSchema()
-    return product_schema.jsonify(new_product), 201
-
-@app.route('/product/<int:id>', methods=['PATCH'])
-def update_product(id):
-    product = Product.query.get_or_404(id)
-
-    product.name = request.json.get('name', product.name)
-    product.price = request.json.get('price', product.price)
-    product.store_id = request.json.get('store_id', product.store_id)
-
-    db.session.commit()
-
-    product_schema = ProductSchema()
-    return product_schema.jsonify(product)
-
-@app.route('/product/<int:id>', methods=['DELETE'])
-def delete_product(id):
-    product = Product.query.get_or_404(id)
-
-    db.session.delete(product)
-    db.session.commit()
-
-    return '', 204
-
-# Coupon routes
-@app.route('/coupons', methods=['GET'])
-def get_coupons():
-    coupons = Coupon.query.all()
-    coupon_schema = CouponSchema(many=True)
-    return coupon_schema.jsonify(coupons)
-
-@app.route('/coupon', methods=['POST'])
-def add_coupon():
-    code = request.json.get('code')
-    discount = request.json.get('discount')
-
-    new_coupon = Coupon(code=code, discount=discount)
-    db.session.add(new_coupon)
-    db.session.commit()
-
-    coupon_schema = CouponSchema()
-    return coupon_schema.jsonify(new_coupon), 201
-
-@app.route('/coupon/<int:id>', methods=['PATCH'])
-def update_coupon(id):
-    coupon = Coupon.query.get_or_404(id)
-
-    coupon.code = request.json.get('code', coupon.code)
-    coupon.discount = request.json.get('discount', coupon.discount)
-
-    db.session.commit()
-
-    coupon_schema = CouponSchema()
-    return coupon_schema.jsonify(coupon)
-
-@app.route('/coupon/<int:id>', methods=['DELETE'])
-def delete_coupon(id):
-    coupon = Coupon.query.get_or_404(id)
-
-    db.session.delete(coupon)
-    db.session.commit()
-
-    return '', 204
-
-# User routes
+# ------------- USER ROUTES -------------
 @app.route('/users', methods=['GET'])
 def get_users():
     users = User.query.all()
-    user_schema = UserSchema(many=True)
-    return user_schema.jsonify(users)
+    return jsonify([user.to_dict() for user in users])
 
-@app.route('/user', methods=['POST'])
+@app.route('/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(user.to_dict())
+
+@app.route('/users', methods=['POST'])
 def add_user():
-    name = request.json.get('name')
-    email = request.json.get('email')
-
-    new_user = User(name=name, email=email)
+    data = request.json
+    new_user = User(name=data['name'], email=data['email'])
     db.session.add(new_user)
     db.session.commit()
+    return jsonify(new_user.to_dict()), 201
 
-    user_schema = UserSchema()
-    return user_schema.jsonify(new_user), 201
-
-@app.route('/user/<int:id>', methods=['PATCH'])
-def update_user(id):
-    user = User.query.get_or_404(id)
-
-    user.name = request.json.get('name', user.name)
-    user.email = request.json.get('email', user.email)
-
+@app.route('/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    data = request.json
+    user.name = data.get('name', user.name)
+    user.email = data.get('email', user.email)
     db.session.commit()
+    return jsonify(user.to_dict())
 
-    user_schema = UserSchema()
-    return user_schema.jsonify(user)
-
-@app.route('/user/<int:id>', methods=['DELETE'])
-def delete_user(id):
-    user = User.query.get_or_404(id)
-
+@app.route('/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
     db.session.delete(user)
     db.session.commit()
+    return jsonify({"message": "User deleted successfully"})
 
-    return '', 204
 
-# Company routes
+# ------------- PRODUCT ROUTES -------------
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = Product.query.all()
+    return jsonify([product.to_dict() for product in products])
+
+@app.route('/products/<int:product_id>', methods=['GET'])
+def get_product(product_id):
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    return jsonify(product.to_dict())
+
+@app.route('/products', methods=['POST'])
+def add_product():
+    data = request.json
+    new_product = Product(name=data['name'], price=data['price'], store_id=data['store_id'])
+    db.session.add(new_product)
+    db.session.commit()
+    return jsonify(new_product.to_dict()), 201
+
+@app.route('/products/<int:product_id>', methods=['PUT'])
+def update_product(product_id):
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    data = request.json
+    product.name = data.get('name', product.name)
+    product.price = data.get('price', product.price)
+    db.session.commit()
+    return jsonify(product.to_dict())
+
+@app.route('/products/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Product not found"}), 404
+    db.session.delete(product)
+    db.session.commit()
+    return jsonify({"message": "Product deleted successfully"})
+
+
+# ------------- STORE ROUTES -------------
+@app.route('/stores', methods=['GET'])
+def get_stores():
+    stores = Store.query.all()
+    return jsonify([store.to_dict() for store in stores])
+
+@app.route('/stores', methods=['POST'])
+def add_store():
+    data = request.json
+    new_store = Store(name=data['name'], location=data['location'])
+    db.session.add(new_store)
+    db.session.commit()
+    return jsonify(new_store.to_dict()), 201
+
+
+# ------------- COMPANY ROUTES -------------
 @app.route('/companies', methods=['GET'])
 def get_companies():
     companies = Company.query.all()
-    company_schema = CompanySchema(many=True)
-    return company_schema.jsonify(companies)
+    return jsonify([company.to_dict() for company in companies])
 
-@app.route('/company', methods=['POST'])
+@app.route('/companies', methods=['POST'])
 def add_company():
-    name = request.json.get('name')
-    location = request.json.get('location')
-
-    new_company = Company(name=name, location=location)
+    data = request.json
+    new_company = Company(name=data['name'], industry=data['industry'])
     db.session.add(new_company)
     db.session.commit()
+    return jsonify(new_company.to_dict()), 201
 
-    company_schema = CompanySchema()
-    return company_schema.jsonify(new_company), 201
 
-@app.route('/company/<int:id>', methods=['PATCH'])
-def update_company(id):
-    company = Company.query.get_or_404(id)
+# ------------- COUPON ROUTES -------------
+@app.route('/coupons', methods=['GET'])
+def get_coupons():
+    coupons = Coupon.query.all()
+    return jsonify([coupon.to_dict() for coupon in coupons])
 
-    company.name = request.json.get('name', company.name)
-    company.location = request.json.get('location', company.location)
-
+@app.route('/coupons', methods=['POST'])
+def add_coupon():
+    data = request.json
+    new_coupon = Coupon(code=data['code'], discount=data['discount'], user_id=data['user_id'])
+    db.session.add(new_coupon)
     db.session.commit()
-
-    company_schema = CompanySchema()
-    return company_schema.jsonify(company)
-
-@app.route('/company/<int:id>', methods=['DELETE'])
-def delete_company(id):
-    company = Company.query.get_or_404(id)
-
-    db.session.delete(company)
-    db.session.commit()
-
-    return '', 204
+    return jsonify(new_coupon.to_dict()), 201
 
 if __name__ == '__main__':
     app.run(debug=True)
+
