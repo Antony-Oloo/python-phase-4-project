@@ -1,9 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import date
 
 db = SQLAlchemy()
 
 class User(db.Model):
-    __tablename__ = 'users'  # Changed to plural to avoid reserved keyword issues
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
@@ -21,7 +22,7 @@ class Store(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     location = db.Column(db.String(200), nullable=False)
-    products = db.relationship('Product', backref='store', lazy=True)
+    coupons = db.relationship('Coupon', backref='store', lazy=True)
 
     def to_dict(self):
         return {
@@ -63,6 +64,9 @@ class Coupon(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(50), unique=True, nullable=False)
     discount = db.Column(db.Float, nullable=False)
+    expiry = db.Column(db.Date, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def to_dict(self):
@@ -70,5 +74,11 @@ class Coupon(db.Model):
             "id": self.id,
             "code": self.code,
             "discount": self.discount,
-            "user_id": self.user_id
+            "expiry": self.expiry.isoformat() if self.expiry else None,
+            "description": self.description,
+            "store": {
+                "id": self.store.id,
+                "name": self.store.name,
+                "location": self.store.location
+            } if self.store else None
         }
