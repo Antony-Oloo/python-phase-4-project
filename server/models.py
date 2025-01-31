@@ -1,5 +1,4 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import date
 
 db = SQLAlchemy()
 
@@ -21,7 +20,6 @@ class Store(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     location = db.Column(db.String(200), nullable=False)
-    coupons = db.relationship('Coupon', backref='store', lazy=True)
 
     def to_dict(self):
         return {
@@ -74,9 +72,5 @@ class Coupon(db.Model):
             "discount": self.discount,
             "expiry": self.expiry.isoformat() if self.expiry else None,
             "description": self.description,
-            "store": {
-                "id": self.store.id,
-                "name": self.store.name,
-                "location": self.store.location
-            } if self.store else None
+            "store_id": self.store_id
         }

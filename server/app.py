@@ -15,7 +15,78 @@ migrate = Migrate(app, db)
 with app.app_context():
     db.create_all()
 
-# ------------- Coupon Routes -------------
+# ------------- HOME ROUTE -------------
+@app.route('/')
+def home():
+    return jsonify({"message": "Welcome to the API!"})
+
+
+# ------------- USER ROUTES -------------
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify([user.to_dict() for user in users])
+
+@app.route('/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify(user.to_dict())
+
+@app.route('/users', methods=['POST'])
+def add_user():
+    data = request.json
+    new_user = User(name=data['name'], email=data['email'])
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify(new_user.to_dict()), 201
+
+
+# ------------- STORE ROUTES -------------
+@app.route('/stores', methods=['GET'])
+def get_stores():
+    stores = Store.query.all()
+    return jsonify([store.to_dict() for store in stores])
+
+@app.route('/stores', methods=['POST'])
+def add_store():
+    data = request.json
+    new_store = Store(name=data['name'], location=data['location'])
+    db.session.add(new_store)
+    db.session.commit()
+    return jsonify(new_store.to_dict()), 201
+
+
+# ------------- PRODUCT ROUTES -------------
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = Product.query.all()
+    return jsonify([product.to_dict() for product in products])
+
+@app.route('/products', methods=['POST'])
+def add_product():
+    data = request.json
+    new_product = Product(name=data['name'], price=data['price'], store_id=data['store_id'])
+    db.session.add(new_product)
+    db.session.commit()
+    return jsonify(new_product.to_dict()), 201
+
+
+# ------------- COMPANY ROUTES -------------
+@app.route('/companies', methods=['GET'])
+def get_companies():
+    companies = Company.query.all()
+    return jsonify([company.to_dict() for company in companies])
+
+@app.route('/companies', methods=['POST'])
+def add_company():
+    data = request.json
+    new_company = Company(name=data['name'], industry=data['industry'])
+    db.session.add(new_company)
+    db.session.commit()
+    return jsonify(new_company.to_dict()), 201
+
+
+# ------------- COUPON ROUTES -------------
 @app.route('/coupons', methods=['GET'])
 def get_coupons():
     coupons = Coupon.query.all()
@@ -45,29 +116,7 @@ def add_coupon():
     db.session.commit()
     return jsonify(new_coupon.to_dict()), 201
 
-@app.route('/coupons/<int:coupon_id>', methods=['PATCH'])
-def update_coupon(coupon_id):
-    coupon = Coupon.query.get_or_404(coupon_id)
-    data = request.json
 
-    coupon.code = data.get('code', coupon.code)
-    coupon.discount = data.get('discount', coupon.discount)
-    if 'expiry' in data:
-        try:
-            coupon.expiry = datetime.strptime(data['expiry'], '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({"error": "Invalid expiry date format. Use YYYY-MM-DD."}), 400
-    coupon.description = data.get('description', coupon.description)
-    coupon.store_id = data.get('store_id', coupon.store_id)
-    db.session.commit()
-    return jsonify(coupon.to_dict())
-
-@app.route('/coupons/<int:coupon_id>', methods=['DELETE'])
-def delete_coupon(coupon_id):
-    coupon = Coupon.query.get_or_404(coupon_id)
-    db.session.delete(coupon)
-    db.session.commit()
-    return jsonify({"message": "Coupon deleted successfully"})
-
+# ------------- RUN THE APP -------------
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5555)
