@@ -1,10 +1,8 @@
-from flask import Flask, request, jsonify 
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask import Flask, request, jsonify
 from models import db, User, Store, Product, Company, Coupon
-from datetime import datetime
+from flask_migrate import Migrate
 from flask_cors import CORS
-
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -14,143 +12,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Create the database tables
 with app.app_context():
     db.create_all()
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Welcome to the API!"})
-
-# ------------- USER ROUTES -------------
-@app.route('/users', methods=['GET'])
-def get_users():
-    users = User.query.all()
-    return jsonify([user.to_dict() for user in users])
-
-@app.route('/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    return jsonify(user.to_dict())
-
-@app.route('/users', methods=['POST'])
-def add_user():
-    data = request.json
-    new_user = User(name=data['name'], email=data['email'])
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify(new_user.to_dict()), 201
-
-@app.route('/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    data = request.json
-    user.name = data.get('name', user.name)
-    user.email = data.get('email', user.email)
-    db.session.commit()
-    return jsonify(user.to_dict())
-
-@app.route('/users/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({"message": "User deleted successfully"})
-
-
-# ------------- PRODUCT ROUTES -------------
-@app.route('/products', methods=['GET'])
-def get_products():
-    products = Product.query.all()
-    return jsonify([product.to_dict() for product in products])
-
-@app.route('/products/<int:product_id>', methods=['GET'])
-def get_product(product_id):
-    product = Product.query.get(product_id)
-    if not product:
-        return jsonify({"error": "Product not found"}), 404
-    return jsonify(product.to_dict())
-
-@app.route('/products', methods=['POST'])
-def add_product():
-    data = request.json
-    new_product = Product(name=data['name'], price=data['price'], store_id=data['store_id'])
-    db.session.add(new_product)
-    db.session.commit()
-    return jsonify(new_product.to_dict()), 201
-
-@app.route('/products/<int:product_id>', methods=['PUT'])
-def update_product(product_id):
-    product = Product.query.get(product_id)
-    if not product:
-        return jsonify({"error": "Product not found"}), 404
-    data = request.json
-    product.name = data.get('name', product.name)
-    product.price = data.get('price', product.price)
-    db.session.commit()
-    return jsonify(product.to_dict())
-
-@app.route('/products/<int:product_id>', methods=['DELETE'])
-def delete_product(product_id):
-    product = Product.query.get(product_id)
-    if not product:
-        return jsonify({"error": "Product not found"}), 404
-    db.session.delete(product)
-    db.session.commit()
-    return jsonify({"message": "Product deleted successfully"})
-
-
-# ------------- STORE ROUTES -------------
-@app.route('/stores', methods=['GET'])
-def get_stores():
-    stores = Store.query.all()
-    return jsonify([store.to_dict() for store in stores])
-
-@app.route('/stores', methods=['POST'])
-def add_store():
-    data = request.json
-    new_store = Store(name=data['name'], location=data['location'])
-    db.session.add(new_store)
-    db.session.commit()
-    return jsonify(new_store.to_dict()), 201
-
-# ------------- COMPANY ROUTES -------------
-@app.route('/companies', methods=['GET'])
-def get_companies():
-    companies = Company.query.all()
-    return jsonify([company.to_dict() for company in companies])
-
-@app.route('/companies', methods=['POST'])
-def add_company():
-    data = request.json
-    new_company = Company(name=data['name'], industry=data['industry'])
-    db.session.add(new_company)
-    db.session.commit()
-    return jsonify(new_company.to_dict()), 201
-
-
-# ------------- COUPON ROUTES -------------
+# ------------- Coupon Routes -------------
 @app.route('/coupons', methods=['GET'])
 def get_coupons():
     coupons = Coupon.query.all()
     return jsonify([coupon.to_dict() for coupon in coupons])
 
-@app.route('/coupons/<int:id>', methods=['GET'])
-def get_coupon(id):
-    coupon = Coupon.query.get_or_404(id)
+@app.route('/coupons/<int:coupon_id>', methods=['GET'])
+def get_coupon(coupon_id):
+    coupon = Coupon.query.get_or_404(coupon_id)
     return jsonify(coupon.to_dict())
 
 @app.route('/coupons', methods=['POST'])
 def add_coupon():
     data = request.json
-
-    # Convert the expiry string to a date object
     try:
         expiry_date = datetime.strptime(data['expiry'], '%Y-%m-%d').date()
     except ValueError:
@@ -161,16 +39,15 @@ def add_coupon():
         discount=data['discount'],
         expiry=expiry_date,
         description=data.get('description', ''),
-        store_id=data['store_id'],
-        user_id=data['user_id']
+        store_id=data['store_id']
     )
     db.session.add(new_coupon)
     db.session.commit()
     return jsonify(new_coupon.to_dict()), 201
 
-@app.route('/coupons/<int:id>', methods=['PATCH'])
-def update_coupon(id):
-    coupon = Coupon.query.get_or_404(id)
+@app.route('/coupons/<int:coupon_id>', methods=['PATCH'])
+def update_coupon(coupon_id):
+    coupon = Coupon.query.get_or_404(coupon_id)
     data = request.json
 
     coupon.code = data.get('code', coupon.code)
@@ -183,12 +60,11 @@ def update_coupon(id):
     coupon.description = data.get('description', coupon.description)
     coupon.store_id = data.get('store_id', coupon.store_id)
     db.session.commit()
-
     return jsonify(coupon.to_dict())
 
-@app.route('/coupons/<int:id>', methods=['DELETE'])
-def delete_coupon(id):
-    coupon = Coupon.query.get_or_404(id)
+@app.route('/coupons/<int:coupon_id>', methods=['DELETE'])
+def delete_coupon(coupon_id):
+    coupon = Coupon.query.get_or_404(coupon_id)
     db.session.delete(coupon)
     db.session.commit()
     return jsonify({"message": "Coupon deleted successfully"})

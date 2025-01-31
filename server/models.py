@@ -8,7 +8,6 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    coupons = db.relationship('Coupon', backref='user', lazy=True)
 
     def to_dict(self):
         return {
@@ -67,7 +66,6 @@ class Coupon(db.Model):
     expiry = db.Column(db.Date, nullable=False)
     description = db.Column(db.String(255), nullable=True)
     store_id = db.Column(db.Integer, db.ForeignKey('stores.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def to_dict(self):
         return {
