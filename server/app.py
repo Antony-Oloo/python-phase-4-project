@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from models import db, User, Store, Product, Company, Coupon
 from flask_migrate import Migrate
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, date
 
 app = Flask(__name__)
 CORS(app)
@@ -19,7 +19,6 @@ with app.app_context():
 @app.route('/')
 def home():
     return jsonify({"message": "Welcome to the API!"})
-
 
 # ------------- USER ROUTES -------------
 @app.route('/users', methods=['GET'])
@@ -40,7 +39,6 @@ def add_user():
     db.session.commit()
     return jsonify(new_user.to_dict()), 201
 
-
 # ------------- STORE ROUTES -------------
 @app.route('/stores', methods=['GET'])
 def get_stores():
@@ -54,7 +52,6 @@ def add_store():
     db.session.add(new_store)
     db.session.commit()
     return jsonify(new_store.to_dict()), 201
-
 
 # ------------- PRODUCT ROUTES -------------
 @app.route('/products', methods=['GET'])
@@ -70,7 +67,6 @@ def add_product():
     db.session.commit()
     return jsonify(new_product.to_dict()), 201
 
-
 # ------------- COMPANY ROUTES -------------
 @app.route('/companies', methods=['GET'])
 def get_companies():
@@ -84,7 +80,6 @@ def add_company():
     db.session.add(new_company)
     db.session.commit()
     return jsonify(new_company.to_dict()), 201
-
 
 # ------------- COUPON ROUTES -------------
 @app.route('/coupons', methods=['GET'])
@@ -116,6 +111,31 @@ def add_coupon():
     db.session.commit()
     return jsonify(new_coupon.to_dict()), 201
 
+@app.route('/coupons/<int:id>', methods=['PUT'])
+def update_coupon(id):
+    data = request.json
+    coupon = Coupon.query.get_or_404(id)
+
+    try:
+        coupon.expiry = date.fromisoformat(data.get('expiry', coupon.expiry.isoformat()))
+    except ValueError:
+        return jsonify({"error": "Invalid expiry date format."}), 400
+
+    coupon.code = data.get('code', coupon.code)
+    coupon.discount = data.get('discount', coupon.discount)
+    coupon.description = data.get('description', coupon.description)
+    coupon.store_id = data.get('store_id', coupon.store_id)
+
+    db.session.commit()
+    return jsonify(coupon.to_dict()), 200
+
+@app.route('/coupons/<int:id>', methods=['DELETE'])
+def delete_coupon(id):
+    coupon = Coupon.query.get_or_404(id)
+
+    db.session.delete(coupon)
+    db.session.commit()
+    return jsonify({"message": "Coupon deleted successfully"}), 200
 
 # ------------- RUN THE APP -------------
 if __name__ == '__main__':
